@@ -1,9 +1,10 @@
 package com.example.userservice.app;
 
-import com.example.userservice.dao.UserDao;
-import com.example.userservice.dao.UserDaoHibernate;
 import com.example.userservice.exception.DaoException;
 import com.example.userservice.model.User;
+import com.example.userservice.service.UserService;
+import com.example.userservice.dao.UserDao;
+import com.example.userservice.dao.UserDaoHibernate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,6 +15,7 @@ import java.util.Scanner;
 public class Main {
     private static final Logger log = LoggerFactory.getLogger(Main.class);
     private static final UserDao userDao = new UserDaoHibernate();
+    private static final UserService userService = new UserService(userDao);
 
     public static void main(String[] args) {
         log.info("User Service started");
@@ -64,10 +66,12 @@ public class Main {
             String ageStr = sc.nextLine().trim();
             Integer age = ageStr.isEmpty() ? null : Integer.parseInt(ageStr);
 
-            User created = userDao.create(new User(name, email, age));
+            User created = userService.createUser(name, email, age);
             System.out.println("Created: " + created);
         } catch (NumberFormatException e) {
             System.out.println("Age must be a number.");
+        } catch (IllegalArgumentException e) {
+            System.out.println("Invalid input: " + e.getMessage());
         } catch (DaoException e) {
             System.out.println("Create failed: " + e.getMessage());
         }
@@ -77,10 +81,12 @@ public class Main {
         try {
             System.out.print("ID: ");
             Long id = Long.parseLong(sc.nextLine().trim());
-            Optional<User> user = userDao.findById(id);
+            Optional<User> user = userService.getUserById(id);
             System.out.println(user.map(Object::toString).orElse("Not found"));
         } catch (NumberFormatException e) {
             System.out.println("ID must be a number.");
+        } catch (IllegalArgumentException e) {
+            System.out.println("Invalid input: " + e.getMessage());
         } catch (DaoException e) {
             System.out.println("Read failed: " + e.getMessage());
         }
@@ -88,7 +94,7 @@ public class Main {
 
     private static void readAll() {
         try {
-            List<User> users = userDao.findAll();
+            List<User> users = userService.getAllUsers();
             if (users.isEmpty()) System.out.println("No users yet.");
             else users.forEach(System.out::println);
         } catch (DaoException e) {
@@ -101,7 +107,7 @@ public class Main {
             System.out.print("ID to update: ");
             Long id = Long.parseLong(sc.nextLine().trim());
 
-            Optional<User> existing = userDao.findById(id);
+            Optional<User> existing = userService.getUserById(id);
             if (existing.isEmpty()) {
                 System.out.println("User not found.");
                 return;
@@ -110,20 +116,22 @@ public class Main {
 
             System.out.print("New name (enter to keep '" + u.getName() + "'): ");
             String name = sc.nextLine().trim();
-            if (!name.isEmpty()) u.setName(name);
+            name = name.isEmpty() ? u.getName() : name;
 
             System.out.print("New email (enter to keep '" + u.getEmail() + "'): ");
             String email = sc.nextLine().trim();
-            if (!email.isEmpty()) u.setEmail(email);
+            email = email.isEmpty() ? u.getEmail() : email;
 
             System.out.print("New age (enter to keep " + u.getAge() + "): ");
             String ageStr = sc.nextLine().trim();
-            if (!ageStr.isEmpty()) u.setAge(Integer.parseInt(ageStr));
+            Integer age = ageStr.isEmpty() ? u.getAge() : Integer.parseInt(ageStr);
 
-            User updated = userDao.update(u);
+            User updated = userService.updateUser(id, name, email, age);
             System.out.println("Updated: " + updated);
         } catch (NumberFormatException e) {
             System.out.println("Age/ID must be a number.");
+        } catch (IllegalArgumentException e) {
+            System.out.println("Invalid input: " + e.getMessage());
         } catch (DaoException e) {
             System.out.println("Update failed: " + e.getMessage());
         }
@@ -133,10 +141,12 @@ public class Main {
         try {
             System.out.print("ID to delete: ");
             Long id = Long.parseLong(sc.nextLine().trim());
-            boolean ok = userDao.deleteById(id);
+            boolean ok = userService.deleteUser(id);
             System.out.println(ok ? "Deleted." : "User not found.");
         } catch (NumberFormatException e) {
             System.out.println("ID must be a number.");
+        } catch (IllegalArgumentException e) {
+            System.out.println("Invalid input: " + e.getMessage());
         } catch (DaoException e) {
             System.out.println("Delete failed: " + e.getMessage());
         }
